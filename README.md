@@ -68,6 +68,29 @@ Seed admin (optionnel) : définir dans `.env` puis relancer `db:seed`
 php artisan serve
 ```
 
+Alternative (serveur PHP intégré) :
+
+```bash
+php -S 127.0.0.1:8001 server.php
+```
+
+## Documentation Swagger (Swagger UI)
+
+L’API embarque Swagger UI pour tester les endpoints via navigateur.
+
+- Swagger UI : `GET /docs`
+- Spécification OpenAPI : `GET /docs/openapi`
+
+### Tester une route JWT
+
+1) Ouvrir `/docs`
+2) Exécuter `POST /v1/auth/login` et copier `access_token`
+3) Cliquer sur **Authorize** puis coller :
+
+`Bearer <access_token>`
+
+4) Tester ensuite les endpoints protégés (ex: `GET /v1/auth/me`, endpoints `/v1/admin/*`)
+
 ## Authentification (JWT + refresh token)
 
 Principes :
@@ -199,4 +222,3 @@ vendor/bin/pint
 - Le projet est volontairement maintenu compatible PHP 8.0 (Laravel 8.83) pour l’environnement actuel.
 - Les refresh tokens sont persistés en base (hash SHA-256), l’access token n’est pas stocké côté serveur.
 - Les fonctionnalités upload/download (S3/MinIO, sha256, streaming) sont prévues mais non finalisées dans ce MVP.
-

@@ -1,0 +1,940 @@
+openapi: 3.0.3
+info:
+  title: Archives Nationales du Sénégal — API
+  version: "1.0.0"
+  description: API du portail (catalogue, demandes, administration).
+servers:
+  - url: /api
+tags:
+  - name: Auth
+  - name: Catalogue
+  - name: Demandes
+  - name: Admin
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+    AuthLoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+      required: [email, password]
+    AuthTokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        access_token_expires_in:
+          type: integer
+          format: int64
+        refresh_token:
+          type: string
+        refresh_token_expires_in:
+          type: integer
+          format: int64
+        token_type:
+          type: string
+          example: Bearer
+      required: [access_token, access_token_expires_in, refresh_token, refresh_token_expires_in, token_type]
+    AuthRefreshRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+      required: [refresh_token]
+    AuthLogoutRequest:
+      type: object
+      properties:
+        refresh_token:
+          type: string
+      required: [refresh_token]
+    UserMe:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        first_name:
+          type: string
+        last_name:
+          type: string
+        display_name:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, PENDING, DELETED]
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+    FondsArchive:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        period_label:
+          type: string
+          nullable: true
+        unesco:
+          type: boolean
+        estimated_documents_count:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fonds_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        reference_code:
+          type: string
+          nullable: true
+        summary:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [MANUSCRIPT, NEWSPAPER, MAP, PHOTO, REGISTER, REPORT, LETTER, AUDIO, VIDEO, OTHER]
+        visibility:
+          type: string
+          enum: [PUBLIC, REGISTERED, RESTRICTED, ADMIN_ONLY]
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        language:
+          type: string
+          nullable: true
+        page_count:
+          type: integer
+          nullable: true
+        published_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    DocumentFileSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [PDF, IMAGE_JPEG, IMAGE_PNG, THUMBNAIL, OCR_TEXT, OTHER]
+        content_type:
+          type: string
+        size_bytes:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+        version:
+          type: integer
+        uploaded_at:
+          type: string
+          format: date-time
+      required: [id, kind, content_type, size_bytes, sha256, version, uploaded_at]
+    DocumentFilesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentFileSummary"
+      required: [data]
+    ServiceRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requester_user_id:
+          type: string
+          format: uuid
+          nullable: true
+        requester_full_name:
+          type: string
+        requester_email:
+          type: string
+          format: email
+        requester_phone:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [CONSULTATION, COPY_CERTIFIED, AUTHENTICATION, RESEARCH]
+        status:
+          type: string
+          enum: [DRAFT, SUBMITTED, IN_REVIEW, NEEDS_INFO, APPROVED, REJECTED, IN_PROGRESS, COMPLETED, CANCELLED]
+        priority:
+          type: string
+          enum: [LOW, NORMAL, HIGH, URGENT]
+        subject:
+          type: string
+        description:
+          type: string
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateServiceRequestRequest:
+      type: object
+      properties:
+        requester_full_name:
+          type: string
+          maxLength: 160
+        requester_email:
+          type: string
+          format: email
+          maxLength: 191
+        requester_phone:
+          type: string
+          nullable: true
+          maxLength: 30
+        type:
+          type: string
+          enum: [CONSULTATION, COPY_CERTIFIED, AUTHENTICATION, RESEARCH]
+        subject:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+      required: [requester_full_name, requester_email, type, subject, description]
+    UpdateUserStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, PENDING, DELETED]
+      required: [status]
+    AssignRolesRequest:
+      type: object
+      properties:
+        role_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required: [role_ids]
+    UpdateServiceRequestStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [DRAFT, SUBMITTED, IN_REVIEW, NEEDS_INFO, APPROVED, REJECTED, IN_PROGRESS, COMPLETED, CANCELLED]
+        note:
+          type: string
+          nullable: true
+      required: [status]
+    CreateFondsRequest:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 32
+        name:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          nullable: true
+        period_label:
+          type: string
+          nullable: true
+          maxLength: 80
+        unesco:
+          type: boolean
+        estimated_documents_count:
+          type: integer
+          nullable: true
+          minimum: 0
+      required: [code, name, unesco]
+    UpdateFondsRequest:
+      allOf:
+        - $ref: "#/components/schemas/CreateFondsRequest"
+    CreateDocumentRequest:
+      type: object
+      properties:
+        fonds_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 255
+        reference_code:
+          type: string
+          nullable: true
+          maxLength: 80
+        summary:
+          type: string
+          nullable: true
+        type:
+          type: string
+          enum: [MANUSCRIPT, NEWSPAPER, MAP, PHOTO, REGISTER, REPORT, LETTER, AUDIO, VIDEO, OTHER]
+        visibility:
+          type: string
+          enum: [PUBLIC, REGISTERED, RESTRICTED, ADMIN_ONLY]
+        start_date:
+          type: string
+          format: date
+          nullable: true
+        end_date:
+          type: string
+          format: date
+          nullable: true
+        language:
+          type: string
+          nullable: true
+          maxLength: 30
+        page_count:
+          type: integer
+          nullable: true
+          minimum: 0
+        published_at:
+          type: string
+          format: date
+          nullable: true
+      required: [fonds_id, title, type, visibility]
+    UpdateDocumentRequest:
+      allOf:
+        - $ref: "#/components/schemas/CreateDocumentRequest"
+paths:
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthLoginRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too Many Attempts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token (rotation)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthRefreshRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout (revoke refresh token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuthLogoutRequest"
+      responses:
+        "204":
+          description: No Content
+  /v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Profil courant
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserMe"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/fonds:
+    get:
+      tags: [Catalogue]
+      summary: Lister les fonds
+      parameters:
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /v1/fonds/{id}:
+    get:
+      tags: [Catalogue]
+      summary: Détail d'un fonds
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FondsArchive"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/documents:
+    get:
+      tags: [Catalogue]
+      summary: Rechercher / lister les documents visibles
+      parameters:
+        - in: query
+          name: q
+          schema:
+            type: string
+        - in: query
+          name: fonds_id
+          schema:
+            type: string
+            format: uuid
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [MANUSCRIPT, NEWSPAPER, MAP, PHOTO, REGISTER, REPORT, LETTER, AUDIO, VIDEO, OTHER]
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /v1/documents/{id}:
+    get:
+      tags: [Catalogue]
+      summary: Détail d'un document (policy)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/documents/{id}/files:
+    get:
+      tags: [Catalogue]
+      summary: Lister les fichiers d'un document (policy)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentFilesResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/documents/{id}/view:
+    post:
+      tags: [Catalogue]
+      summary: Tracer une consultation (policy)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: No Content
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/requests:
+    post:
+      tags: [Demandes]
+      summary: Créer une demande de service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateServiceRequestRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequest"
+    get:
+      tags: [Demandes]
+      summary: Lister les demandes de l'utilisateur (Bearer)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/requests/{id}:
+    get:
+      tags: [Demandes]
+      summary: Détail d'une demande (propriétaire, Bearer)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequest"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/admin/users:
+    get:
+      tags: [Admin]
+      summary: Lister les utilisateurs
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [ACTIVE, SUSPENDED, PENDING, DELETED]
+        - in: query
+          name: email
+          schema:
+            type: string
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/admin/users/{id}/status:
+    patch:
+      tags: [Admin]
+      summary: Modifier le statut utilisateur
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserStatusRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/admin/users/{id}/roles:
+    post:
+      tags: [Admin]
+      summary: Assigner des rôles à un utilisateur
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignRolesRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/admin/requests:
+    get:
+      tags: [Admin]
+      summary: Lister les demandes (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [DRAFT, SUBMITTED, IN_REVIEW, NEEDS_INFO, APPROVED, REJECTED, IN_PROGRESS, COMPLETED, CANCELLED]
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [CONSULTATION, COPY_CERTIFIED, AUTHENTICATION, RESEARCH]
+        - in: query
+          name: per_page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+  /v1/admin/requests/{id}/status:
+    patch:
+      tags: [Admin]
+      summary: Changer le statut d'une demande (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateServiceRequestStatusRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceRequest"
+  /v1/admin/fonds:
+    post:
+      tags: [Admin]
+      summary: Créer un fonds
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFondsRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FondsArchive"
+  /v1/admin/fonds/{id}:
+    put:
+      tags: [Admin]
+      summary: Mettre à jour un fonds
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFondsRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FondsArchive"
+    delete:
+      tags: [Admin]
+      summary: Supprimer un fonds
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: No Content
+  /v1/admin/documents:
+    post:
+      tags: [Admin]
+      summary: Créer un document
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+  /v1/admin/documents/{id}:
+    put:
+      tags: [Admin]
+      summary: Mettre à jour un document
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDocumentRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Document"
+    delete:
+      tags: [Admin]
+      summary: Supprimer un document
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: No Content
+
