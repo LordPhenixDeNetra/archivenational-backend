@@ -1,66 +1,202 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Archives Nationales du Sénégal — Backend (API Laravel)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Backend API pour le portail “Archives Nationales du Sénégal” : catalogue public, visionneuse (métadonnées), demandes de services, administration (RBAC), audit.
 
-## About Laravel
+## Stack & prérequis
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.0+
+- Laravel 8.83
+- MySQL 8+ (prod/dev) — tests en SQLite mémoire
+- Authentification API : JWT (HS256) + refresh tokens en base (rotation)
+- CORS : fruitcake/laravel-cors
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Démarrage rapide (dev)
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+1) Installer les dépendances
 
-## Learning Laravel
+```bash
+composer install
+```
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+2) Configurer l’environnement
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```bash
+copy .env.example .env
+php artisan key:generate
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+Définir un secret JWT (HMAC) :
 
-## Laravel Sponsors
+```bash
+php -r "echo bin2hex(random_bytes(32)).PHP_EOL;"
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+Puis renseigner `.env` :
 
-### Premium Partners
+- `JWT_SECRET=...`
+- `JWT_TTL=15`
+- `JWT_REFRESH_TTL_DAYS=30`
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
+3) Configurer la base de données (MySQL)
 
-## Contributing
+Dans `.env` :
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+- `DB_CONNECTION=mysql`
+- `DB_HOST=...`
+- `DB_PORT=3306`
+- `DB_DATABASE=...`
+- `DB_USERNAME=...`
+- `DB_PASSWORD=...`
 
-## Code of Conduct
+4) Migrer & seeder
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+php artisan migrate
+php artisan db:seed
+```
 
-## Security Vulnerabilities
+Seed admin (optionnel) : définir dans `.env` puis relancer `db:seed`
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+- `SEED_ADMIN_EMAIL=admin@example.com`
+- `SEED_ADMIN_PASSWORD=MotDePasseSolide`
+- `SEED_ADMIN_FIRST_NAME=Admin`
+- `SEED_ADMIN_LAST_NAME=User`
 
-## License
+5) Lancer l’API
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+php artisan serve
+```
+
+## Authentification (JWT + refresh token)
+
+Principes :
+
+- Access token JWT court (par défaut 15 minutes)
+- Refresh token long, stocké côté serveur dans `refresh_tokens` sous forme de hash SHA-256
+- Rotation obligatoire : chaque refresh invalide l’ancien refresh token et en émet un nouveau
+
+### Endpoints
+
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/me` (Bearer)
+
+### Exemple (curl)
+
+Login :
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\":\"admin@example.com\",\"password\":\"MotDePasseSolide\"}"
+```
+
+Me :
+
+```bash
+curl http://localhost:8000/api/v1/auth/me ^
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
+Refresh :
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/refresh ^
+  -H "Content-Type: application/json" ^
+  -d "{\"refresh_token\":\"<REFRESH_TOKEN>\"}"
+```
+
+## RBAC (rôles/permissions)
+
+- Middleware `permission:<code>`
+- Permissions seedées (exemples) :
+  - `admin.access`
+  - `users.read`, `users.write`
+  - `fonds.read`, `fonds.write`
+  - `documents.read`, `documents.write`, `documents.publish`, `documents.restricted.read`
+  - `requests.read`, `requests.manage`
+  - `stats.read`
+
+## Catalogue public (MVP)
+
+- `GET /api/v1/fonds`
+- `GET /api/v1/fonds/{id}`
+- `GET /api/v1/documents` (filtres: `q`, `fonds_id`, `type`, pagination)
+- `GET /api/v1/documents/{id}`
+- `GET /api/v1/documents/{id}/files`
+- `POST /api/v1/documents/{id}/view` (tracking)
+
+### Règles d’accès documents
+
+Contrôle via policy :
+
+- `PUBLIC` : accessible à tous
+- `REGISTERED` : nécessite un utilisateur authentifié (Bearer)
+- `RESTRICTED` : nécessite la permission `documents.restricted.read` (ou policy ALLOW basique)
+- `ADMIN_ONLY` : nécessite `admin.access`
+
+## Demandes de services (MVP)
+
+Côté usager :
+
+- `POST /api/v1/requests`
+- `GET /api/v1/requests` (Bearer)
+- `GET /api/v1/requests/{id}` (Bearer)
+
+Côté admin :
+
+- `GET /api/v1/admin/requests` (Bearer + permissions)
+- `PATCH /api/v1/admin/requests/{id}/status` (Bearer + permissions)
+
+## Administration (MVP)
+
+Les routes admin sont sous `/api/v1/admin` et exigent :
+
+- `auth:jwt`
+- `permission:admin.access`
+- permissions métier additionnelles selon endpoint
+
+Exemples :
+
+- `GET /api/v1/admin/users` (users.read)
+- `PATCH /api/v1/admin/users/{id}/status` (users.write)
+- `POST /api/v1/admin/users/{id}/roles` (users.write)
+- CRUD fonds/documents (fonds.write / documents.write)
+
+## Audit
+
+Table `audit_logs` : enregistrement des actions métier sensibles (création/modif/suppression, changements de statut, etc.).
+
+## Modèle de données (MVP)
+
+Toutes les entités métier utilisent des UUID (`CHAR(36)` via `uuid` Laravel).
+
+Tables principales :
+
+- Identity & Access : `users`, `password_credentials`, `refresh_tokens`, `roles`, `permissions`, `role_user`, `permission_role`
+- Catalogue : `fonds_archives`, `documents`, `document_files`, `tags`, `document_tag`, `access_policies`, `document_view_events`
+- Services : `service_requests`, `request_attachments`, `request_status_histories`
+- Audit : `audit_logs`
+
+## Tests
+
+Les tests sont exécutés en SQLite mémoire (configuration dans `phpunit.xml`).
+
+```bash
+php artisan test
+```
+
+## Qualité (formatage)
+
+```bash
+vendor/bin/pint
+```
+
+## Notes importantes
+
+- Le projet est volontairement maintenu compatible PHP 8.0 (Laravel 8.83) pour l’environnement actuel.
+- Les refresh tokens sont persistés en base (hash SHA-256), l’access token n’est pas stocké côté serveur.
+- Les fonctionnalités upload/download (S3/MinIO, sha256, streaming) sont prévues mais non finalisées dans ce MVP.
+
