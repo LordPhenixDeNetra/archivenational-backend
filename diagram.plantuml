@@ -1,0 +1,391 @@
+@startuml
+hide circle
+skinparam classAttributeIconSize 0
+
+package "Identity & Access (Sécurité)" as IAM {
+  class User {
+    +UUID id
+    +string email
+    +string phone?
+    +string firstName
+    +string lastName
+    +string displayName?
+    +UserStatus status
+    +datetime createdAt
+    +datetime updatedAt
+    +datetime lastLoginAt?
+  }
+
+  class Credential {
+    +UUID id
+    +UUID userId
+    +string passwordHash
+    +string passwordAlgo
+    +int passwordVersion
+    +datetime passwordChangedAt
+    +int failedLoginCount
+    +datetime lockedUntil?
+  }
+
+  class Role {
+    +UUID id
+    +string name
+    +string description?
+  }
+
+  class Permission {
+    +UUID id
+    +string code
+    +string description?
+  }
+
+  class UserRole {
+    +UUID userId
+    +UUID roleId
+    +datetime assignedAt
+    +UUID assignedBy?
+  }
+
+  class RolePermission {
+    +UUID roleId
+    +UUID permissionId
+  }
+
+  class RefreshToken {
+    +UUID id
+    +UUID userId
+    +string tokenHash
+    +datetime expiresAt
+    +datetime revokedAt?
+    +string userAgent?
+    +string ip?
+    +UUID createdBySessionId?
+  }
+
+  class MfaDevice {
+    +UUID id
+    +UUID userId
+    +MfaType type
+    +string label
+    +string secretEncrypted
+    +datetime enrolledAt
+    +datetime lastUsedAt?
+    +bool active
+  }
+
+  class PasswordResetToken {
+    +UUID id
+    +UUID userId
+    +string tokenHash
+    +datetime expiresAt
+    +datetime usedAt?
+  }
+
+  class EmailVerificationToken {
+    +UUID id
+    +UUID userId
+    +string tokenHash
+    +datetime expiresAt
+    +datetime verifiedAt?
+  }
+
+  enum UserStatus { ACTIVE; SUSPENDED; PENDING; DELETED }
+  enum MfaType { TOTP; EMAIL_OTP; SMS_OTP }
+
+  User "1" o-- "1" Credential
+  User "1" -- "0..*" RefreshToken
+  User "1" -- "0..*" MfaDevice
+  User "1" -- "0..*" PasswordResetToken
+  User "1" -- "0..*" EmailVerificationToken
+
+  User "1" -- "0..*" UserRole
+  Role "1" -- "0..*" UserRole
+  Role "1" -- "0..*" RolePermission
+  Permission "1" -- "0..*" RolePermission
+}
+
+package "Archives & Catalogue" as CAT {
+  class FondsArchive {
+    +UUID id
+    +string code
+    +string name
+    +string description
+    +string periodLabel?
+    +bool unesco
+    +int estimatedDocumentsCount?
+    +datetime createdAt
+  }
+
+  class Document {
+    +UUID id
+    +UUID fondsId
+    +string title
+    +string referenceCode?
+    +string summary?
+    +DocumentType type
+    +DocumentVisibility visibility
+    +date startDate?
+    +date endDate?
+    +string language?
+    +string origin?
+    +int pageCount?
+    +datetime createdAt
+    +datetime updatedAt
+    +datetime publishedAt?
+  }
+
+  class DocumentFile {
+    +UUID id
+    +UUID documentId
+    +FileKind kind
+    +string storageKey
+    +string contentType
+    +long sizeBytes
+    +string sha256
+    +int version
+    +datetime uploadedAt
+    +UUID uploadedBy?
+  }
+
+  class Tag {
+    +UUID id
+    +string name
+    +string slug
+  }
+
+  class DocumentTag {
+    +UUID documentId
+    +UUID tagId
+  }
+
+  class AccessPolicy {
+    +UUID id
+    +UUID documentId
+    +AccessRule rule
+    +string conditionJson?
+  }
+
+  class DocumentViewEvent {
+    +UUID id
+    +UUID documentId
+    +UUID userId?
+    +datetime viewedAt
+    +string ip?
+    +string userAgent?
+    +string referrer?
+  }
+
+  enum DocumentType { MANUSCRIPT; NEWSPAPER; MAP; PHOTO; REGISTER; REPORT; LETTER; AUDIO; VIDEO; OTHER }
+  enum DocumentVisibility { PUBLIC; REGISTERED; RESTRICTED; ADMIN_ONLY }
+  enum FileKind { PDF; IMAGE_JPEG; IMAGE_PNG; THUMBNAIL; OCR_TEXT; OTHER }
+  enum AccessRule { ALLOW; DENY; REQUIRE_MFA; REQUIRE_APPROVAL }
+
+  FondsArchive "1" -- "0..*" Document
+  Document "1" -- "0..*" DocumentFile
+  Document "1" -- "0..*" AccessPolicy
+  Document "1" -- "0..*" DocumentViewEvent
+
+  Document "1" -- "0..*" DocumentTag
+  Tag "1" -- "0..*" DocumentTag
+}
+
+package "Bibliothèque Numérique" as BIB {
+  class Collection {
+    +UUID id
+    +string name
+    +string description?
+    +bool featured
+  }
+
+  class CollectionItem {
+    +UUID collectionId
+    +UUID documentId
+    +int sortOrder
+  }
+
+  Collection "1" -- "0..*" CollectionItem
+  CAT.Document "1" -- "0..*" CollectionItem
+}
+
+package "Services (Demandes & Rendez-vous)" as SRV {
+  class ServiceRequest {
+    +UUID id
+    +UUID requesterUserId?
+    +string requesterFullName
+    +string requesterEmail
+    +string requesterPhone?
+    +RequestType type
+    +RequestStatus status
+    +RequestPriority priority
+    +string subject
+    +string description
+    +datetime createdAt
+    +datetime updatedAt
+    +datetime closedAt?
+  }
+
+  class RequestAttachment {
+    +UUID id
+    +UUID requestId
+    +string storageKey
+    +string contentType
+    +long sizeBytes
+    +string sha256
+    +datetime uploadedAt
+  }
+
+  class ConsultationAppointment {
+    +UUID id
+    +UUID requestId
+    +datetime scheduledAt
+    +int durationMinutes
+    +string location
+    +AppointmentStatus status
+    +UUID assignedArchivistId?
+  }
+
+  class RequestStatusHistory {
+    +UUID id
+    +UUID requestId
+    +RequestStatus fromStatus
+    +RequestStatus toStatus
+    +datetime changedAt
+    +UUID changedBy?
+    +string note?
+  }
+
+  enum RequestType { CONSULTATION; COPY_CERTIFIED; AUTHENTICATION; RESEARCH }
+  enum RequestStatus { DRAFT; SUBMITTED; IN_REVIEW; NEEDS_INFO; APPROVED; REJECTED; IN_PROGRESS; COMPLETED; CANCELLED }
+  enum RequestPriority { LOW; NORMAL; HIGH; URGENT }
+  enum AppointmentStatus { PROPOSED; CONFIRMED; RESCHEDULED; CANCELLED; DONE }
+
+  IAM.User "1" -- "0..*" ServiceRequest : requester
+  ServiceRequest "1" -- "0..*" RequestAttachment
+  ServiceRequest "1" -- "0..*" RequestStatusHistory
+  ServiceRequest "1" -- "0..1" ConsultationAppointment
+  IAM.User "1" -- "0..*" ConsultationAppointment : assignedArchivist
+}
+
+package "Librairie (E-commerce)" as SHOP {
+  class Product {
+    +UUID id
+    +string sku
+    +string title
+    +string author?
+    +int publicationYear?
+    +string publisher?
+    +Money price
+    +ProductType type
+    +bool active
+    +datetime createdAt
+  }
+
+  class InventoryItem {
+    +UUID productId
+    +int stockQty
+    +int reservedQty
+    +datetime updatedAt
+  }
+
+  class Order {
+    +UUID id
+    +UUID buyerUserId?
+    +string buyerEmail
+    +OrderStatus status
+    +Money subtotal
+    +Money shippingCost
+    +Money total
+    +string currency
+    +datetime createdAt
+    +datetime paidAt?
+  }
+
+  class OrderItem {
+    +UUID id
+    +UUID orderId
+    +UUID productId
+    +int quantity
+    +Money unitPrice
+    +Money lineTotal
+  }
+
+  class Payment {
+    +UUID id
+    +UUID orderId
+    +PaymentProvider provider
+    +PaymentStatus status
+    +Money amount
+    +string providerRef?
+    +datetime createdAt
+    +datetime confirmedAt?
+  }
+
+  class Shipment {
+    +UUID id
+    +UUID orderId
+    +ShipmentStatus status
+    +string carrier?
+    +string trackingNumber?
+    +datetime shippedAt?
+    +datetime deliveredAt?
+  }
+
+  class Address {
+    +UUID id
+    +UUID userId?
+    +string fullName
+    +string phone?
+    +string line1
+    +string line2?
+    +string city
+    +string country
+    +string postalCode?
+  }
+
+  class Money {
+    +decimal amount
+    +string currency
+  }
+
+  enum ProductType { DIGITAL_PDF; PHYSICAL_BOOK; BOTH }
+  enum OrderStatus { DRAFT; PLACED; PAID; FULFILLING; SHIPPED; COMPLETED; CANCELLED; REFUNDED }
+  enum PaymentProvider { CARD; MOBILE_MONEY; CASH; BANK_TRANSFER }
+  enum PaymentStatus { INITIATED; AUTHORIZED; CONFIRMED; FAILED; REFUNDED }
+  enum ShipmentStatus { PENDING; SHIPPED; DELIVERED; LOST; RETURNED }
+
+  IAM.User "1" -- "0..*" Order : buyer
+  Order "1" -- "1..*" OrderItem
+  Product "1" -- "0..*" OrderItem
+  Order "1" -- "0..*" Payment
+  Order "1" -- "0..1" Shipment
+  Product "1" -- "0..1" InventoryItem
+  IAM.User "1" -- "0..*" Address
+}
+
+package "Audit & Administration" as AUDIT {
+  class AuditLog {
+    +UUID id
+    +UUID actorUserId?
+    +string action
+    +string entityType
+    +UUID entityId?
+    +string metadataJson?
+    +datetime createdAt
+    +string ip?
+    +string userAgent?
+  }
+
+  class AdminNote {
+    +UUID id
+    +string entityType
+    +UUID entityId
+    +UUID authorId
+    +string note
+    +datetime createdAt
+  }
+
+  IAM.User "1" -- "0..*" AuditLog : actor
+  IAM.User "1" -- "0..*" AdminNote : author
+}
+
+@enduml
